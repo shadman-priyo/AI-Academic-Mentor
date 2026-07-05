@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Notifications — AI Academic Mentor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/global.css"/>
+  <style>
+    .notif-item {
+      display:flex; align-items:flex-start; gap:14px;
+      padding:16px 20px; border-bottom:1px solid var(--border);
+      transition:var(--transition); animation:fadeUp 0.3s ease both;
+    }
+    .notif-item:last-child { border-bottom:none; }
+    .notif-item.unread { background:rgba(59,130,246,0.04); }
+    .notif-item:hover { background:rgba(255,255,255,0.02); }
+    .notif-dot { width:8px; height:8px; border-radius:50%; margin-top:6px; flex-shrink:0; }
+    .notif-dot.unread { background:var(--primary); box-shadow:0 0 6px var(--primary); }
+    .notif-dot.read { background:var(--border-2); }
+    .notif-body { flex:1; }
+    .notif-text { font-size:0.9rem; color:var(--text); line-height:1.5; margin-bottom:4px; }
+    .notif-time { font-size:0.72rem; color:var(--text-3); font-family:var(--mono); }
+    .notif-icon { font-size:1.2rem; flex-shrink:0; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+  <div class="main-content">
+    <header class="topbar">
+      <div>
+        <div class="topbar-title">🔔 Notifications</div>
+        <div class="topbar-sub" id="notifSubtitle">Loading...</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn-ghost" onclick="markAllRead()" style="font-size:0.82rem;">Mark all read</button>
+        <button class="btn-ghost" onclick="clearNotifs()" style="font-size:0.82rem;color:var(--text-3);">Clear all</button>
+      </div>
+    </header>
+    <div class="page-body" style="max-width:700px;">
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div id="notifList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../components/auth.js"></script>
+<script src="../components/sidebar.js"></script>
+<script>
+Auth.require();
+renderSidebar('notifications');
+
+const typeIcons = { success:'✅', error:'❌', info:'ℹ️', warning:'⚠️' };
+
+function renderNotifications() {
+  const notifs = Notifications.get();
+  const unread = notifs.filter(n=>!n.read).length;
+  document.getElementById('notifSubtitle').textContent = unread ? `${unread} unread notification${unread>1?'s':''}` : 'All caught up';
+
+  if (!notifs.length) {
+    document.getElementById('notifList').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🔔</div>
+        <p>No notifications yet. Start using AI features to see activity here.</p>
+      </div>
+    `;
+    return;
+  }
+
+  document.getElementById('notifList').innerHTML = notifs.map((n,i) => `
+    <div class="notif-item ${n.read?'':'unread'}" style="animation-delay:${i*0.04}s;">
+      <div class="notif-dot ${n.read?'read':'unread'}"></div>
+      <div class="notif-icon">${typeIcons[n.type]||'🔔'}</div>
+      <div class="notif-body">
+        <div class="notif-text">${escapeHtml(n.text)}</div>
+        <div class="notif-time">${timeAgo(n.time)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function markAllRead() {
+  Notifications.markRead();
+  renderNotifications();
+  renderSidebar('notifications');
+}
+
+function clearNotifs() {
+  if (!confirm('Clear all notifications?')) return;
+  DataStore.set('notifications', []);
+  renderNotifications();
+  renderSidebar('notifications');
+}
+
+renderNotifications();
+</script>
+</body>
+</html>

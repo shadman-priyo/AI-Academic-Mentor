@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Note Summarizer — AI Academic Mentor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/global.css"/>
+  <style>
+    .sum-layout { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+    .sum-output { min-height:400px; }
+    .output-box {
+      background:var(--bg-2); border:1px solid var(--border);
+      border-radius:var(--radius); padding:20px;
+      min-height:300px; font-size:0.9rem; line-height:1.7;
+      color:var(--text);
+    }
+    .output-box h3 { font-size:1rem; font-weight:700; color:var(--primary-light); margin:16px 0 8px; }
+    .output-box ul { margin:0 0 12px 20px; color:var(--text-2); }
+    .output-box p { margin-bottom:10px; color:var(--text-2); }
+    .output-box strong { color:var(--text); }
+    .history-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px; margin-bottom:10px; cursor:pointer; transition:var(--transition); }
+    .history-card:hover { border-color:var(--border-2); }
+    .history-card strong { display:block; font-size:0.85rem; font-weight:600; color:var(--text); margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .history-card span { font-size:0.75rem; color:var(--text-3); }
+    .char-count { font-family:var(--mono); font-size:0.72rem; color:var(--text-3); text-align:right; margin-top:4px; }
+    .sum-options { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+    .sum-opt-btn { padding:7px 14px; border-radius:999px; border:1.5px solid var(--border); background:var(--surface); color:var(--text-2); font-size:0.8rem; cursor:pointer; transition:var(--transition); font-family:var(--font); }
+    .sum-opt-btn.active { border-color:var(--primary); color:var(--primary-light); background:rgba(59,130,246,0.1); }
+    @media(max-width:800px) { .sum-layout{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+  <div class="main-content">
+    <header class="topbar">
+      <div>
+        <div class="topbar-title">📝 AI Note Summarizer</div>
+        <div class="topbar-sub">Compress dense notes into clear, memorable summaries</div>
+      </div>
+    </header>
+    <div class="page-body wide" style="padding:28px;max-width:1100px;">
+      <div class="sum-layout">
+
+        <!-- Input -->
+        <div>
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title" style="margin-bottom:12px;">Paste Your Notes</div>
+            <div class="sum-options">
+              <button class="sum-opt-btn active" onclick="setSumType(this,'concise')">📌 Concise</button>
+              <button class="sum-opt-btn" onclick="setSumType(this,'detailed')">📋 Detailed</button>
+              <button class="sum-opt-btn" onclick="setSumType(this,'bullets')">• Bullet Points</button>
+              <button class="sum-opt-btn" onclick="setSumType(this,'exam')">🎯 Exam Ready</button>
+            </div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <label>Subject / Topic (optional)</label>
+              <input type="text" id="noteSubject" class="form-input" placeholder="e.g. Operating Systems, Data Structures..."/>
+            </div>
+            <div class="form-group">
+              <label>Your Notes</label>
+              <textarea id="noteInput" class="form-input" style="min-height:280px;resize:vertical;" placeholder="Paste your lecture notes, textbook content, or any study material here..." oninput="updateCharCount()"></textarea>
+              <div class="char-count" id="charCount">0 characters</div>
+            </div>
+            <button class="btn-primary" id="sumBtn" onclick="summarize()" style="width:100%;justify-content:center;margin-top:4px;">
+              📝 Summarize Notes
+            </button>
+          </div>
+
+          <div class="card">
+            <div class="card-title" style="margin-bottom:12px;">Previous Summaries</div>
+            <div id="sumHistory">
+              <div style="color:var(--text-3);font-size:0.82rem;">No summaries yet</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Output -->
+        <div class="sum-output">
+          <div class="card" style="height:100%;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+              <div class="card-title">AI Summary</div>
+              <button class="btn-ghost" id="copyBtn" onclick="copySummary()" style="font-size:0.8rem;display:none;">📋 Copy</button>
+            </div>
+            <div class="output-box" id="outputBox">
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:250px;text-align:center;color:var(--text-3);">
+                <div style="font-size:3rem;margin-bottom:16px;">📝</div>
+                <p style="max-width:280px;">Your AI-generated summary will appear here. Paste your notes and click Summarize.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../components/auth.js"></script>
+<script src="../components/sidebar.js"></script>
+<script>
+Auth.require();
+renderSidebar('summarizer');
+
+let sumType = 'concise';
+
+function setSumType(btn, type) {
+  sumType = type;
+  document.querySelectorAll('.sum-opt-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function updateCharCount() {
+  const len = document.getElementById('noteInput').value.length;
+  document.getElementById('charCount').textContent = len.toLocaleString() + ' characters';
+}
+
+function renderHistory() {
+  const sums = DataStore.get('summaries') || [];
+  const el = document.getElementById('sumHistory');
+  if (!sums.length) { el.innerHTML = `<div style="color:var(--text-3);font-size:0.82rem;">No summaries yet</div>`; return; }
+  el.innerHTML = sums.slice(0,4).map((s,i) => `
+    <div class="history-card" onclick="loadSummary(${i})">
+      <strong>${escapeHtml(s.subject || s.preview)}</strong>
+      <span>${s.type} · ${timeAgo(s.date)}</span>
+    </div>
+  `).join('');
+}
+
+function loadSummary(i) {
+  const sums = DataStore.get('summaries') || [];
+  const s = sums[i];
+  if (!s) return;
+  document.getElementById('outputBox').innerHTML = formatMarkdown(s.content);
+  document.getElementById('copyBtn').style.display = 'flex';
+}
+
+async function summarize() {
+  const notes = document.getElementById('noteInput').value.trim();
+  if (!notes) { alert('Please paste your notes first.'); return; }
+  if (notes.length < 50) { alert('Notes are too short to summarize. Please add more content.'); return; }
+  // FIX: dead GeminiAPI.getKey()/showApiKeyPrompt() call removed — same bug
+  // as quiz.html/planner.html, this crashed summarization before it started.
+
+  const btn = document.getElementById('sumBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Summarizing...';
+
+  const subject = document.getElementById('noteSubject').value.trim();
+  const typeInstructions = {
+    concise: 'Create a concise summary highlighting the most important points. Keep it brief and memorable.',
+    detailed: 'Create a comprehensive, detailed summary covering all key concepts, definitions, and important points with clear structure.',
+    bullets: 'Create a well-organized bullet-point summary with main headings and sub-points. Use hierarchical structure.',
+    exam: 'Create an exam-ready summary with: Key Concepts, Important Definitions, Common Exam Topics, and Quick Review Points.'
+  };
+
+  const prompt = `You are an expert academic summarizer for university students.
+
+${subject ? `Subject/Topic: ${subject}` : ''}
+Summary style: ${typeInstructions[sumType]}
+
+Notes to summarize:
+"""
+${notes}
+"""
+
+Create a clear, structured, easy-to-study summary. Use proper headings, bullet points where appropriate. Make it suitable for university-level exam preparation. Format it nicely with markdown (bold for key terms, headers for sections).`;
+
+  const output = document.getElementById('outputBox');
+  output.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:200px;"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+
+  try {
+    const result = await GeminiAPI.call(prompt);
+    output.innerHTML = formatMarkdown(result);
+    document.getElementById('copyBtn').style.display = 'flex';
+
+    // Save — local cache PLUS the real backend save (new: this used to only
+    // write to localStorage, so summaries never reached MongoDB).
+    DataStore.push('summaries', {
+      subject: subject || 'Untitled',
+      preview: notes.slice(0,60) + '...',
+      content: result,
+      type: sumType,
+      date: new Date().toISOString()
+    });
+    Notifications.add(`Summary created: ${subject || 'Notes'} 📝`, 'info');
+    renderHistory();
+
+    BackendAPI.saveSummary({
+      title: subject || 'Untitled Note',
+      originalText: notes,
+      summary: result,
+      subject: subject || null,
+      style: sumType
+    }).then(res => {
+      if (res.demoMode) console.warn('Summary saved in DEMO MODE — MongoDB not connected.');
+      else console.log('✅ Summary saved to MongoDB.');
+    }).catch(err => console.error('Failed to save summary to backend:', err.message));
+  } catch (err) {
+    output.innerHTML = `<div class="alert alert-error">Error: ${escapeHtml(err.message)}</div>`;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '📝 Summarize Notes';
+}
+
+function copySummary() {
+  const text = document.getElementById('outputBox').innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = '📋 Copy', 2000);
+  });
+}
+
+renderHistory();
+</script>
+</body>
+</html>

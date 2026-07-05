@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Quiz Generator — AI Academic Mentor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/global.css"/>
+  <style>
+    .quiz-layout { display:grid; grid-template-columns:320px 1fr; gap:24px; align-items:start; }
+    .gen-panel { position:sticky; top:80px; }
+    .quiz-question { animation:fadeUp 0.4s ease both; }
+    .quiz-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+    .quiz-prog { display:flex; align-items:center; gap:12px; }
+    .quiz-prog-text { font-family:var(--mono); font-size:0.82rem; color:var(--text-3); }
+    .result-card {
+      text-align:center; padding:48px;
+      background:var(--surface); border:1px solid var(--border-2); border-radius:var(--radius);
+      animation:fadeUp 0.5s ease both;
+    }
+    .result-score { font-size:4rem; font-weight:800; line-height:1; margin:16px 0; }
+    .result-score.great { background:linear-gradient(135deg, var(--accent), var(--primary-light)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .result-score.ok { color:var(--gold); }
+    .result-score.poor { color:var(--accent-2); }
+    .answer-review { margin-top:20px; text-align:left; }
+    .review-item { padding:12px 16px; border-radius:var(--radius-sm); border:1px solid var(--border); margin-bottom:8px; font-size:0.85rem; }
+    .review-item.correct { border-color:var(--accent); background:rgba(6,214,160,0.08); }
+    .review-item.wrong { border-color:var(--accent-2); background:rgba(247,37,133,0.08); }
+    .review-item .r-q { font-weight:600; color:var(--text); margin-bottom:4px; }
+    .review-item .r-a { color:var(--text-2); }
+    .history-item { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+    .history-item:last-child { border-bottom:none; }
+    @media(max-width:800px) { .quiz-layout{grid-template-columns:1fr} .gen-panel{position:static} }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+  <div class="main-content">
+    <header class="topbar">
+      <div>
+        <div class="topbar-title">⚡ AI Quiz Generator</div>
+        <div class="topbar-sub">Generate personalized quizzes on any topic</div>
+      </div>
+    </header>
+    <div class="page-body wide" style="padding:28px;max-width:1100px;">
+      <div class="quiz-layout">
+
+        <!-- Generator Panel -->
+        <div class="gen-panel">
+          <div class="card">
+            <div class="card-title" style="margin-bottom:16px;">Generate Quiz</div>
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <div class="form-group">
+                <label>Topic / Subject</label>
+                <input type="text" id="quizTopic" class="form-input" placeholder="e.g. Data Structures, OOP..." />
+              </div>
+              <div class="form-group">
+                <label>Number of Questions</label>
+                <select id="numQuestions" class="form-input">
+                  <option value="3">3 questions</option>
+                  <option value="5" selected>5 questions</option>
+                  <option value="10">10 questions</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Difficulty</label>
+                <select id="difficulty" class="form-input">
+                  <option value="easy">Easy</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Quiz Type</label>
+                <select id="quizType" class="form-input">
+                  <option value="mcq" selected>Multiple Choice (MCQ)</option>
+                  <option value="truefalse">True / False</option>
+                  <option value="mixed">Mixed</option>
+                </select>
+              </div>
+              <button class="btn-primary" id="genBtn" onclick="generateQuiz()" style="width:100%;justify-content:center;">
+                ⚡ Generate Quiz
+              </button>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:16px;">
+            <div class="card-title" style="margin-bottom:12px;">Quiz History</div>
+            <div id="quizHistory">
+              <div style="color:var(--text-3);font-size:0.82rem;">No quizzes yet</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quiz Area -->
+        <div id="quizArea">
+          <div class="empty-state">
+            <div class="empty-icon">⚡</div>
+            <p>Configure your quiz settings and click Generate. Gemini AI will create a personalized quiz for you instantly.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../components/auth.js"></script>
+<script src="../components/sidebar.js"></script>
+<script>
+Auth.require();
+renderSidebar('quiz');
+
+let currentQuiz = [];
+let userAnswers = [];
+let quizSubmitted = false;
+
+function renderHistory() {
+  const results = DataStore.get('quiz_results') || [];
+  const el = document.getElementById('quizHistory');
+  if (!results.length) { el.innerHTML = `<div style="color:var(--text-3);font-size:0.82rem;">No quizzes yet</div>`; return; }
+  el.innerHTML = results.slice(0,5).map(r => `
+    <div class="history-item">
+      <div style="flex:1;min-width:0;">
+        <strong style="font-size:0.82rem;color:var(--text);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(r.topic)}</strong>
+        <span style="font-size:0.72rem;color:var(--text-3);">${r.numQ} Qs · ${timeAgo(r.date)}</span>
+      </div>
+      <span class="badge ${r.score >= 70 ? 'badge-green' : r.score >= 50 ? 'badge-gold' : 'badge-blue'}">${r.score}%</span>
+    </div>
+  `).join('');
+}
+
+async function generateQuiz() {
+  const topic = document.getElementById('quizTopic').value.trim();
+  if (!topic) { alert('Please enter a topic.'); return; }
+  // FIX: this used to call GeminiAPI.getKey() / showApiKeyPrompt(), both of
+  // which were removed from components/auth.js a while ago (the API key
+  // lives server-side now, there's nothing for the user to enter). That
+  // left a dead function call here that threw a TypeError and killed quiz
+  // generation before it even started, every single time.
+
+  const n = document.getElementById('numQuestions').value;
+  const diff = document.getElementById('difficulty').value;
+  const type = document.getElementById('quizType').value;
+
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Generating...';
+
+  const typeDesc = type === 'mcq' ? 'multiple choice with 4 options (A,B,C,D)' : type === 'truefalse' ? 'True/False' : 'mixed multiple choice and True/False';
+  const prompt = `Create a ${diff} ${n}-question quiz about "${topic}" for a university CSE student.
+
+Format: Return ONLY a valid JSON array. No explanation, no markdown, no code blocks.
+
+Example format:
+[
+  {
+    "question": "What is...",
+    "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
+    "answer": "A",
+    "explanation": "..."
+  }
+]
+
+For True/False questions, options should be ["A. True", "B. False"] and answer "A" or "B".
+
+Generate ${n} ${typeDesc} questions about: ${topic}
+Difficulty: ${diff}. Make them appropriate for university level.`;
+
+  try {
+    const raw = await GeminiAPI.call(prompt);
+    // Extract JSON
+    const jsonMatch = raw.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error('Invalid response format');
+    currentQuiz = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(currentQuiz) || !currentQuiz.length) throw new Error('No questions generated');
+    userAnswers = new Array(currentQuiz.length).fill(null);
+    quizSubmitted = false;
+    renderQuiz(topic);
+  } catch (err) {
+    document.getElementById('quizArea').innerHTML = `
+      <div class="alert alert-error">Failed to generate quiz: ${escapeHtml(err.message)}<br/>Try again or check your API key.</div>
+    `;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '⚡ Generate Quiz';
+}
+
+function renderQuiz(topic) {
+  const area = document.getElementById('quizArea');
+  area.innerHTML = `
+    <div class="card">
+      <div class="quiz-header">
+        <div>
+          <div class="card-title">${escapeHtml(topic)}</div>
+          <div class="card-sub">${currentQuiz.length} questions · Answer all before submitting</div>
+        </div>
+        <div class="quiz-prog">
+          <div class="prog-bar" style="width:120px;"><div class="prog-fill blue" id="quizProg" style="width:0%"></div></div>
+          <span class="quiz-prog-text" id="progText">0/${currentQuiz.length}</span>
+        </div>
+      </div>
+      <div id="questionsContainer"></div>
+      <div id="submitArea" style="margin-top:24px;display:none;">
+        <button class="btn-primary" onclick="submitQuiz('${escapeHtml(topic)}')" style="width:100%;justify-content:center;padding:14px;">
+          Submit Quiz →
+        </button>
+      </div>
+    </div>
+  `;
+
+  const container = document.getElementById('questionsContainer');
+  currentQuiz.forEach((q, qi) => {
+    const opts = q.options || ['A. True', 'B. False'];
+    const div = document.createElement('div');
+    div.className = 'quiz-question';
+    div.style.marginBottom = '28px';
+    div.innerHTML = `
+      <div style="font-size:0.88rem;font-weight:700;color:var(--text-2);margin-bottom:8px;font-family:var(--mono);">Q${qi+1} of ${currentQuiz.length}</div>
+      <p style="font-size:0.95rem;font-weight:600;color:var(--text);margin-bottom:14px;line-height:1.5;">${escapeHtml(q.question)}</p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${opts.map((opt, oi) => `
+          <button class="quiz-option" onclick="selectAnswer(${qi}, '${opt[0]}', this.closest('div').querySelectorAll('.quiz-option'))" data-key="${opt[0]}">
+            <span class="quiz-option-key">${opt[0]}</span>
+            ${escapeHtml(opt.slice(3).trim() || opt)}
+          </button>
+        `).join('')}
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function selectAnswer(qi, answer, buttons) {
+  if (quizSubmitted) return;
+  userAnswers[qi] = answer;
+  buttons.forEach(b => b.classList.remove('selected'));
+  [...buttons].find(b => b.dataset.key === answer)?.classList.add('selected');
+  // Update progress
+  const answered = userAnswers.filter(a => a !== null).length;
+  document.getElementById('quizProg').style.width = (answered/currentQuiz.length*100) + '%';
+  document.getElementById('progText').textContent = `${answered}/${currentQuiz.length}`;
+  if (answered === currentQuiz.length) document.getElementById('submitArea').style.display = 'block';
+}
+
+function submitQuiz(topic) {
+  quizSubmitted = true;
+  let correct = 0;
+  const area = document.getElementById('questionsContainer');
+  const questions = area.querySelectorAll('.quiz-question');
+
+  currentQuiz.forEach((q, qi) => {
+    const isCorrect = userAnswers[qi] === q.answer;
+    if (isCorrect) correct++;
+    const btns = questions[qi].querySelectorAll('.quiz-option');
+    btns.forEach(b => {
+      b.style.pointerEvents = 'none';
+      if (b.dataset.key === q.answer) b.classList.add('correct');
+      else if (b.dataset.key === userAnswers[qi] && !isCorrect) b.classList.add('wrong');
+    });
+    // Show explanation
+    const expDiv = document.createElement('div');
+    expDiv.style.cssText = 'margin-top:10px;padding:10px 14px;background:var(--bg-3);border-radius:8px;font-size:0.82rem;color:var(--text-2);';
+    expDiv.innerHTML = `💡 <strong>Explanation:</strong> ${escapeHtml(q.explanation || 'The correct answer is ' + q.answer)}`;
+    questions[qi].appendChild(expDiv);
+  });
+
+  const pct = Math.round(correct/currentQuiz.length*100);
+  const cls = pct >= 70 ? 'great' : pct >= 50 ? 'ok' : 'poor';
+  const emoji = pct >= 70 ? '🎯' : pct >= 50 ? '📚' : '💪';
+
+  document.getElementById('submitArea').innerHTML = `
+    <div style="text-align:center;padding:28px;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--radius);margin-top:16px;animation:fadeUp 0.4s ease both;">
+      <div style="font-size:3rem;">${emoji}</div>
+      <div class="result-score ${cls}">${pct}%</div>
+      <p style="color:var(--text-2);margin-bottom:16px;">${correct} out of ${currentQuiz.length} correct · ${pct>=70?'Excellent work!':pct>=50?'Good effort, keep studying!':'Review this topic and try again.'}</p>
+      <button class="btn-primary" onclick="location.reload()" style="margin-right:10px;">New Quiz</button>
+      <button class="btn-outline" onclick="window.location.href='progress.html'">View Progress</button>
+    </div>
+  `;
+
+  // Save result — local cache for instant UI, PLUS the real backend save
+  // (this second call is new: the old code only ever wrote to
+  // localStorage, so quiz results never reached MongoDB at all).
+  DataStore.push('quiz_results', { topic, score: pct, numQ: currentQuiz.length, correct, date: new Date().toISOString() });
+  Notifications.add(`Quiz complete: ${topic} — ${pct}% 🎯`, 'success');
+  renderHistory();
+
+  BackendAPI.saveQuizResult({
+    topic, score: pct, numQuestions: currentQuiz.length, correct,
+    difficulty: document.getElementById('difficulty')?.value || 'medium',
+    type: document.getElementById('quizType')?.value || 'mcq'
+  }).then(res => {
+    if (res.demoMode) console.warn('Quiz saved in DEMO MODE — MongoDB not connected, this result will not persist.');
+    else console.log('✅ Quiz result saved to MongoDB.');
+  }).catch(err => console.error('Failed to save quiz result to backend:', err.message));
+}
+
+renderHistory();
+</script>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Chatbot — AI Academic Mentor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/global.css"/>
+  <style>
+    .chat-page { display:flex; height:100vh; overflow:hidden; }
+    .chat-sidebar {
+      width:260px; background:var(--bg-2); border-right:1px solid var(--border);
+      display:flex; flex-direction:column; flex-shrink:0;
+    }
+    .chat-sidebar-header { padding:16px; border-bottom:1px solid var(--border); }
+    .chat-sidebar-header h3 { font-size:0.9rem; font-weight:700; color:var(--text); margin-bottom:12px; }
+    .session-list { flex:1; overflow-y:auto; padding:8px; }
+    .session-item {
+      padding:11px 12px; border-radius:var(--radius-sm); cursor:pointer;
+      transition:var(--transition); margin-bottom:4px; border:1px solid transparent;
+    }
+    .session-item:hover { background:var(--surface); border-color:var(--border); }
+    .session-item.active { background:rgba(59,130,246,0.1); border-color:rgba(59,130,246,0.25); }
+    .session-item strong { display:block; font-size:0.82rem; font-weight:600; color:var(--text); margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .session-item span { font-size:0.72rem; color:var(--text-3); }
+    .chat-main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+    .chat-topbar { height:60px; border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 20px; gap:12px; flex-shrink:0; background:rgba(7,11,20,0.6); backdrop-filter:blur(12px); }
+    .chat-topbar .back { display:flex; align-items:center; gap:8px; color:var(--text-2); text-decoration:none; font-size:0.85rem; transition:var(--transition); }
+    .chat-topbar .back:hover { color:var(--text); }
+    .chat-area { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:16px; }
+    .chat-input-area { border-top:1px solid var(--border); padding:16px 20px; display:flex; gap:10px; align-items:flex-end; flex-shrink:0; }
+    .chat-suggestions { display:flex; flex-wrap:wrap; gap:8px; padding:0 20px 12px; flex-shrink:0; }
+    .suggestion-chip {
+      padding:7px 14px; border-radius:999px;
+      background:var(--surface); border:1px solid var(--border);
+      font-size:0.78rem; color:var(--text-2); cursor:pointer; transition:var(--transition);
+      font-family:var(--font);
+    }
+    .suggestion-chip:hover { border-color:var(--primary); color:var(--primary-light); background:rgba(59,130,246,0.08); }
+    .msg-bubble pre { background:var(--bg-3); padding:12px; border-radius:8px; overflow-x:auto; font-family:var(--mono); font-size:0.82rem; margin:8px 0; }
+    .msg-bubble code { font-family:var(--mono); font-size:0.85em; background:var(--bg-3); padding:2px 6px; border-radius:4px; }
+    @media(max-width:700px) { .chat-sidebar{display:none} }
+  </style>
+</head>
+<body>
+<div class="chat-page">
+  <!-- Session Sidebar -->
+  <div class="chat-sidebar">
+    <div class="chat-sidebar-header">
+      <h3>Conversations</h3>
+      <button class="btn-primary" style="width:100%;justify-content:center;font-size:0.82rem;" onclick="newSession()">+ New Chat</button>
+    </div>
+    <div class="session-list" id="sessionList"></div>
+  </div>
+
+  <!-- Main Chat -->
+  <div class="chat-main">
+    <div class="chat-topbar">
+      <a href="dashboard.html" class="back">← Dashboard</a>
+      <span style="color:var(--border);margin:0 4px;">|</span>
+      <div style="flex:1;">
+        <div style="font-size:0.95rem;font-weight:700;color:var(--text);">🤖 AI Academic Chatbot</div>
+        <div style="font-size:0.72rem;color:var(--text-3);" id="sessionTopic">Powered by Gemini AI</div>
+      </div>
+      <button class="btn-ghost" onclick="clearChat()" style="font-size:0.8rem;">Clear</button>
+    </div>
+
+    <div class="chat-area" id="chatArea">
+      <div class="msg ai fade-up">
+        <div class="msg-avatar">AI</div>
+        <div class="msg-bubble">
+          <strong>Hello! I'm your AI Academic Mentor 👋</strong>
+          <p style="margin-top:8px;">I'm powered by Gemini AI and I'm here to help you with any academic questions. You can ask me to:</p>
+          <ul style="margin:8px 0 0 16px;font-size:0.88rem;color:var(--text-2);">
+            <li>Explain complex concepts clearly</li>
+            <li>Help with assignments and problems</li>
+            <li>Summarize topics for quick revision</li>
+            <li>Answer subject-specific questions</li>
+          </ul>
+          <p style="margin-top:10px;font-size:0.82rem;color:var(--text-3);">What would you like to learn today?</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-suggestions" id="suggestions">
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">Explain recursion with examples</button>
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">What is Big O notation?</button>
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">Explain database normalization</button>
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">How does JWT authentication work?</button>
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">Explain the OSI model</button>
+    </div>
+
+    <div class="chat-input-area">
+      <textarea
+        class="chat-input"
+        id="chatInput"
+        placeholder="Ask any academic question..."
+        rows="1"
+        onkeydown="handleKey(event)"
+        oninput="autoResize(this)"
+      ></textarea>
+      <button class="chat-send" id="sendBtn" onclick="sendMessage()">➤</button>
+    </div>
+  </div>
+</div>
+
+<script src="../components/auth.js"></script>
+<script>
+// Secure profile synchronization from localStorage
+const userProfile = Auth.require();
+let messages = []; 
+let sessions = DataStore.get('chat_sessions') || [];
+let currentSessionId = null;
+
+function renderSessions() {
+  const list = document.getElementById('sessionList');
+  if (!sessions.length) {
+    list.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-3);font-size:0.8rem;">No conversations yet</div>`;
+    return;
+  }
+  list.innerHTML = sessions.map(s => `
+    <div class="session-item ${s.id === currentSessionId ? 'active' : ''}" onclick="loadSession('${s.id}')">
+      <strong>${escapeHtml(s.topic || 'New Conversation')}</strong>
+      <span>${timeAgo(s.date)}</span>
+    </div>
+  `).join('');
+}
+
+function newSession() {
+  currentSessionId = 'sess_' + Date.now();
+  messages = [];
+  sessions.unshift({ id: currentSessionId, topic: 'New Conversation', date: new Date().toISOString(), messages: [] });
+  DataStore.set('chat_sessions', sessions);
+  document.getElementById('chatArea').innerHTML = `
+    <div class="msg ai fade-up">
+      <div class="msg-avatar">AI</div>
+      <div class="msg-bubble">New conversation started. What would you like to learn today?</div>
+    </div>
+  `;
+  document.getElementById('sessionTopic').textContent = "Powered by Live AI Engine";
+  renderSessions();
+}
+
+function loadSession(id) {
+  const sess = sessions.find(s => s.id === id);
+  if (!sess) return;
+  currentSessionId = id;
+  messages = sess.messages || [];
+  const area = document.getElementById('chatArea');
+  area.innerHTML = '';
+  document.getElementById('sessionTopic').textContent = escapeHtml(sess.topic || 'AI Conversation');
+  if (!messages.length) {
+    area.innerHTML = `<div class="msg ai"><div class="msg-avatar">AI</div><div class="msg-bubble">Empty conversation.</div></div>`;
+  } else {
+    messages.forEach(m => appendMessage(m.role, m.content, false));
+  }
+  renderSessions();
+}
+
+function appendMessage(role, content, save = true) {
+  const area = document.getElementById('chatArea');
+  const div = document.createElement('div');
+  div.className = `msg ${role} fade-up`;
+  div.innerHTML = `
+    <div class="msg-avatar">${role === 'ai' ? 'AI' : escapeHtml(Auth.initials(userProfile.name))}</div>
+    <div class="msg-bubble">${role === 'ai' ? formatMarkdown(content) : escapeHtml(content)}</div>
+  `;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+
+  if (save) {
+    messages.push({ role, content });
+    const sess = sessions.find(s => s.id === currentSessionId);
+    if (sess) {
+      sess.messages = messages;
+      if (role === 'user' && (sess.topic === 'New Conversation' || sess.topic === '')) {
+        sess.topic = content.slice(0, 35) + (content.length > 35 ? '...' : '');
+        document.getElementById('sessionTopic').textContent = sess.topic;
+      }
+      DataStore.set('chat_sessions', sessions);
+    }
+  }
+}
+
+function showTyping() {
+  const area = document.getElementById('chatArea');
+  const div = document.createElement('div');
+  div.className = 'msg ai';
+  div.id = 'typing';
+  div.innerHTML = `<div class="msg-avatar">AI</div><div class="msg-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+function removeTyping() {
+  document.getElementById('typing')?.remove();
+}
+
+// FIX: this used to hardcode http://localhost:5000, which means chat was
+// GUARANTEED to break the moment this page is opened from anywhere other
+// than your own dev machine (e.g. the live Netlify site). It also manually
+// POSTed a duplicate copy to /api/notes on every message — that's now
+// handled server-side, once, inside routes/ai.js's /chat handler (it saves
+// automatically when you're logged in, using the same JWT you're already
+// sending). Now this just calls GeminiAPI.chat(), which uses the correct
+// base URL for wherever the page is actually running.
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  if (!currentSessionId) {
+    currentSessionId = 'sess_' + Date.now();
+    sessions.unshift({ id: currentSessionId, topic: text.slice(0,50), date: new Date().toISOString(), messages: [] });
+  }
+
+  input.value = '';
+  autoResize(input);
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('suggestions').style.display = 'none';
+
+  appendMessage('user', text);
+  showTyping();
+
+  try {
+    const apiMessages = messages.map(m => ({
+      role: m.role === 'ai' ? 'model' : 'user',
+      content: m.content
+    }));
+
+    const reply = await GeminiAPI.chat(apiMessages);
+    removeTyping();
+    appendMessage('ai', reply);
+    DataStore.push('chat_history', { topic: text.slice(0,60), date: new Date().toISOString() });
+  } catch (err) {
+    removeTyping();
+    console.error('⚠️ Connection crashed:', err);
+    appendMessage('ai', '🔌 Could not reach the backend: ' + (err.message || 'unknown error') + '. Make sure the server is running and API_BASE in components/auth.js points to it.');
+  }
+
+  document.getElementById('sendBtn').disabled = false;
+  renderSessions();
+}
+
+function sendSuggestion(btn) {
+  document.getElementById('chatInput').value = btn.textContent;
+  sendMessage();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+}
+
+function clearChat() {
+  if (!confirm('Clear this conversation?')) return;
+  sessions = sessions.filter(s => s.id !== currentSessionId);
+  DataStore.set('chat_sessions', sessions);
+  currentSessionId = null;
+  messages = [];
+  newSession();
+}
+
+// ─── WORKSPACE INITIALIZATION ──────────────────────────────────────────
+renderSessions();
+if (sessions.length) { 
+  loadSession(sessions[0].id); 
+} else {
+  newSession();
+}
+</script>
+</body>
+</html>

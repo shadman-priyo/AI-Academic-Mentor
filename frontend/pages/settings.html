@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Settings — AI Academic Mentor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/global.css"/>
+  <style>
+    .settings-layout { display:grid; grid-template-columns:220px 1fr; gap:24px; align-items:start; }
+    .settings-nav { position:sticky; top:80px; }
+    .sett-nav-item {
+      display:flex; align-items:center; gap:10px;
+      padding:10px 14px; border-radius:var(--radius-sm);
+      color:var(--text-2); font-size:0.88rem; font-weight:500;
+      cursor:pointer; transition:var(--transition); border:1px solid transparent;
+      margin-bottom:4px;
+    }
+    .sett-nav-item:hover { background:var(--surface); color:var(--text); }
+    .sett-nav-item.active { background:rgba(59,130,246,0.1); color:var(--primary-light); border-color:rgba(59,130,246,0.2); }
+    .settings-section { display:none; }
+    .settings-section.active { display:block; animation:fadeUp 0.3s ease both; }
+    .sett-row { padding:20px 0; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:20px; }
+    .sett-row:last-child { border-bottom:none; }
+    .sett-info { flex:1; }
+    .sett-info strong { display:block; font-size:0.9rem; color:var(--text); margin-bottom:3px; }
+    .sett-info p { font-size:0.8rem; color:var(--text-3); }
+    .api-key-display { font-family:var(--mono); font-size:0.82rem; color:var(--text-3); background:var(--bg-3); padding:8px 12px; border-radius:8px; }
+    @media(max-width:700px) { .settings-layout{grid-template-columns:1fr} .settings-nav{position:static} }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+  <div class="main-content">
+    <header class="topbar">
+      <div>
+        <div class="topbar-title">⚙ Settings</div>
+        <div class="topbar-sub">Manage your account and preferences</div>
+      </div>
+    </header>
+    <div class="page-body wide" style="padding:28px;max-width:1000px;">
+      <div class="settings-layout">
+
+        <div class="settings-nav">
+          <div class="sett-nav-item active" onclick="showSection('profile')">👤 Profile</div>
+          <div class="sett-nav-item" onclick="showSection('data')">🗂 Data Management</div>
+          <div class="sett-nav-item" onclick="showSection('about')">ℹ About</div>
+        </div>
+
+        <div>
+          <!-- PROFILE -->
+          <div class="settings-section active" id="sect-profile">
+            <div class="card">
+              <div class="card-title" style="margin-bottom:4px;">Profile Settings</div>
+              <div class="card-sub" style="margin-bottom:20px;">Your account information</div>
+              <div id="profileForm"></div>
+            </div>
+          </div>
+
+          <!-- API INFO (read-only notice — key lives on backend only) -->
+          <div class="settings-section active" id="sect-api" style="display:none;">
+            <div class="card">
+              <div class="card-title" style="margin-bottom:4px;">AI Engine</div>
+              <div class="card-sub" style="margin-bottom:16px;">How AI features are powered</div>
+              <div style="background:rgba(6,214,160,0.06);border:1px solid rgba(6,214,160,0.2);border-radius:10px;padding:18px 20px;">
+                <div style="font-size:0.88rem;font-weight:700;color:var(--accent);margin-bottom:8px;">🔒 Secure Server-Side AI</div>
+                <p style="font-size:0.83rem;color:var(--text-2);line-height:1.7;margin:0;">
+                  All AI features (chatbot, quiz generator, summarizer, study planner) run through the
+                  secure backend server. The Gemini API key is stored only in the server environment
+                  and is never exposed to the browser. You do not need to provide any API key.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- DATA -->
+          <div class="settings-section" id="sect-data">
+            <div class="card">
+              <div class="card-title" style="margin-bottom:4px;">Data Management</div>
+              <div class="card-sub" style="margin-bottom:20px;">Manage your stored data</div>
+
+              <div class="sett-row">
+                <div class="sett-info">
+                  <strong>Quiz Results</strong>
+                  <p id="quizCount">Loading...</p>
+                </div>
+                <button class="btn-ghost" onclick="clearSection('quiz_results','quizCount','quiz results')" style="color:var(--accent-2);font-size:0.82rem;">Clear</button>
+              </div>
+              <div class="sett-row">
+                <div class="sett-info">
+                  <strong>Chat History</strong>
+                  <p id="chatCount">Loading...</p>
+                </div>
+                <button class="btn-ghost" onclick="clearSection('chat_sessions','chatCount','chat history')" style="color:var(--accent-2);font-size:0.82rem;">Clear</button>
+              </div>
+              <div class="sett-row">
+                <div class="sett-info">
+                  <strong>Study Plans</strong>
+                  <p id="planCount">Loading...</p>
+                </div>
+                <button class="btn-ghost" onclick="clearSection('study_plans','planCount','study plans')" style="color:var(--accent-2);font-size:0.82rem;">Clear</button>
+              </div>
+              <div class="sett-row">
+                <div class="sett-info">
+                  <strong>Summaries</strong>
+                  <p id="sumCount">Loading...</p>
+                </div>
+                <button class="btn-ghost" onclick="clearSection('summaries','sumCount','summaries')" style="color:var(--accent-2);font-size:0.82rem;">Clear</button>
+              </div>
+
+              <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+                <button class="btn-outline" onclick="clearAllData()" style="color:var(--accent-2);border-color:var(--accent-2);width:100%;justify-content:center;">
+                  ⚠ Clear All Data
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ABOUT -->
+          <div class="settings-section" id="sect-about">
+            <div class="card">
+              <div class="card-title" style="margin-bottom:4px;">About AI Academic Mentor</div>
+              <div style="margin-top:16px;">
+                <table class="data-table">
+                  <tr><td style="color:var(--text-3);">Project</td><td>AI Academic Mentor — Personalized Learning & Study Assistant</td></tr>
+                  <tr><td style="color:var(--text-3);">Team</td><td>CSE4104-7C-T05</td></tr>
+                  <tr><td style="color:var(--text-3);">Section</td><td>7C</td></tr>
+                  <tr><td style="color:var(--text-3);">Course</td><td>CSE 4104 — Software Development III</td></tr>
+                  <tr><td style="color:var(--text-3);">Institution</td><td>Northern University of Business and Technology, Khulna</td></tr>
+                  <tr><td style="color:var(--text-3);">Instructor</td><td>Md. Riaz Mahmud, Assistant Professor, CSE Dept.</td></tr>
+                  <tr><td style="color:var(--text-3);">Team Leader</td><td>Shadman Sadequeen Priyo ( ID: 11230121158 )</td></tr>
+                  <tr><td style="color:var(--text-3);">Frontend Dev</td><td>Musabbir Hossain Chayon ( ID: 11230121168 )</td></tr>
+                  <tr><td style="color:var(--text-3);">Backend Dev</td><td>Sk. Nadirul Haque Nadir ( ID: 11230121155 )</td></tr>
+                  <tr><td style="color:var(--text-3);">AI Integration</td><td>Shafin Kabir ( ID: 11230121175 )</td></tr>
+                  <tr><td style="color:var(--text-3);">AI Engine</td><td>Google Gemini 2.5 Flash / Hugging Face Inference API</td></tr>
+                  <tr><td style="color:var(--text-3);">Version</td><td>v1.0.0</td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../components/auth.js"></script>
+<script src="../components/sidebar.js"></script>
+<script>
+Auth.require();
+renderSidebar('settings');
+
+function showSection(id) {
+  document.querySelectorAll('.settings-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.sett-nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('sect-' + id)?.classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// Profile
+const user = Auth.get();
+document.getElementById('profileForm').innerHTML = `
+  <div class="sett-row">
+    <div class="sett-info"><strong>Name</strong><p>${escapeHtml(user?.name||'')}</p></div>
+  </div>
+  <div class="sett-row">
+    <div class="sett-info"><strong>Email</strong><p>${escapeHtml(user?.email||'')}</p></div>
+  </div>
+  <div class="sett-row">
+    <div class="sett-info"><strong>Student ID</strong><p>${escapeHtml(user?.studentId||'Not set')}</p></div>
+  </div>
+  <div class="sett-row">
+    <div class="sett-info"><strong>Department</strong><p>${escapeHtml(user?.dept||'Not set')}</p></div>
+  </div>
+  <div class="sett-row">
+    <div class="sett-info"><strong>Role</strong><p>${user?.role||'student'}</p></div>
+  </div>
+  <div class="sett-row">
+    <div class="sett-info"><strong>Joined</strong><p>${user?.joined ? new Date(user.joined).toLocaleDateString() : 'Unknown'}</p></div>
+  </div>
+  <div style="margin-top:16px;">
+    <button class="btn-outline" onclick="Auth.logout()" style="color:var(--accent-2);border-color:var(--accent-2);">Sign Out</button>
+  </div>
+`;
+
+// Data counts
+function updateCounts() {
+  const q = DataStore.get('quiz_results') || [];
+  const c = DataStore.get('chat_sessions') || [];
+  const p = DataStore.get('study_plans') || [];
+  const s = DataStore.get('summaries') || [];
+  document.getElementById('quizCount').textContent = `${q.length} quiz result${q.length!==1?'s':''} stored`;
+  document.getElementById('chatCount').textContent = `${c.length} conversation${c.length!==1?'s':''} stored`;
+  document.getElementById('planCount').textContent = `${p.length} study plan${p.length!==1?'s':''} stored`;
+  document.getElementById('sumCount').textContent = `${s.length} summar${s.length!==1?'ies':'y'} stored`;
+}
+updateCounts();
+
+function clearSection(key, countId, label) {
+  if (!confirm(`Clear all ${label}?`)) return;
+  DataStore.set(key, []);
+  updateCounts();
+}
+
+function clearAllData() {
+  if (!confirm('Clear ALL data? This cannot be undone.')) return;
+  ['quiz_results','chat_history','study_plans','summaries','chat_sessions','notifications'].forEach(k => DataStore.set(k, []));
+  updateCounts();
+  alert('All data cleared.');
+}
+</script>
+</body>
+</html>

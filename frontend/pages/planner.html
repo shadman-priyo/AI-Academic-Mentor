@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Study Planner — AI Academic Mentor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/global.css"/>
+  <style>
+    .planner-layout { display:grid; grid-template-columns:340px 1fr; gap:24px; align-items:start; }
+    .gen-panel { position:sticky; top:80px; }
+    .day-block { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:16px; overflow:hidden; animation:fadeUp 0.4s ease both; }
+    .day-header { padding:14px 20px; background:var(--bg-2); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .day-header strong { font-size:0.95rem; font-weight:700; color:var(--text); }
+    .day-header span { font-size:0.78rem; color:var(--text-3); font-family:var(--mono); }
+    .day-sessions { padding:16px 20px; display:flex; flex-direction:column; gap:10px; }
+    .session-block {
+      display:flex; align-items:center; gap:14px;
+      padding:12px 16px; border-radius:var(--radius-sm);
+      border:1px solid var(--border); background:var(--bg-2);
+      transition:var(--transition); cursor:pointer;
+    }
+    .session-block:hover { border-color:var(--border-2); }
+    .session-block.done { opacity:0.55; }
+    .session-block.done .sess-title { text-decoration:line-through; }
+    .sess-color { width:4px; border-radius:2px; align-self:stretch; flex-shrink:0; }
+    .sess-info { flex:1; min-width:0; }
+    .sess-title { font-size:0.88rem; font-weight:600; color:var(--text); display:block; margin-bottom:2px; }
+    .sess-meta { font-size:0.75rem; color:var(--text-3); }
+    .sess-duration { font-family:var(--mono); font-size:0.75rem; color:var(--text-2); flex-shrink:0; }
+    .sess-check { width:20px; height:20px; border-radius:5px; border:1.5px solid var(--border-2); display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:#fff; flex-shrink:0; transition:var(--transition); }
+    .session-block.done .sess-check { background:var(--accent); border-color:var(--accent); }
+    .plan-history-item { padding:12px; background:var(--bg-2); border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:8px; cursor:pointer; transition:var(--transition); }
+    .plan-history-item:hover { border-color:var(--primary); }
+    .plan-history-item strong { font-size:0.82rem; color:var(--text); display:block; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .plan-history-item span { font-size:0.72rem; color:var(--text-3); }
+    .subject-tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .subject-tag { padding:4px 10px; background:var(--bg-3); border:1px solid var(--border); border-radius:5px; font-size:0.75rem; color:var(--text-2); display:flex; align-items:center; gap:5px; }
+    .subject-tag button { background:none; border:none; color:var(--text-3); cursor:pointer; font-size:0.9rem; padding:0; line-height:1; }
+    .plan-meta { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+    @media(max-width:900px) { .planner-layout{grid-template-columns:1fr} .gen-panel{position:static} }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+  <div class="main-content">
+    <header class="topbar">
+      <div>
+        <div class="topbar-title">📅 Personalized Study Planner</div>
+        <div class="topbar-sub">AI-generated study plans tailored to your schedule</div>
+      </div>
+    </header>
+    <div class="page-body wide" style="padding:28px;max-width:1100px;">
+      <div class="planner-layout">
+
+        <!-- Generator -->
+        <div class="gen-panel">
+          <div class="card">
+            <div class="card-title" style="margin-bottom:16px;">Create Study Plan</div>
+
+            <div class="form-group" style="margin-bottom:12px;">
+              <label>Add Subject</label>
+              <div style="display:flex;gap:8px;">
+                <input type="text" id="subjectInput" class="form-input" placeholder="e.g. Data Structures" onkeydown="if(event.key==='Enter'){addSubject()}" style="flex:1;"/>
+                <button class="btn-primary" onclick="addSubject()" style="padding:10px 14px;flex-shrink:0;">+</button>
+              </div>
+              <div class="subject-tags" id="subjectTags"></div>
+            </div>
+
+            <div class="plan-meta">
+              <div class="form-group">
+                <label>Study Days</label>
+                <select id="studyDays" class="form-input">
+                  <option value="3">3 days</option>
+                  <option value="5" selected>5 days</option>
+                  <option value="7">7 days</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Daily Hours</label>
+                <select id="dailyHours" class="form-input">
+                  <option value="2">2 hours</option>
+                  <option value="3" selected>3 hours</option>
+                  <option value="4">4 hours</option>
+                  <option value="6">6 hours</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Goal</label>
+                <select id="studyGoal" class="form-input">
+                  <option value="exam">Exam Prep</option>
+                  <option value="revision" selected>Revision</option>
+                  <option value="new">Learn New Topics</option>
+                  <option value="assignment">Assignments</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Level</label>
+                <select id="studyLevel" class="form-input">
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate" selected>Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:14px;">
+              <label>Additional Notes (optional)</label>
+              <textarea id="planNotes" class="form-input" style="min-height:70px;" placeholder="e.g. Weak in trees and graphs, exam next Monday..."></textarea>
+            </div>
+
+            <button class="btn-primary" id="planBtn" onclick="generatePlan()" style="width:100%;justify-content:center;">
+              📅 Generate Study Plan
+            </button>
+          </div>
+
+          <div class="card" style="margin-top:16px;">
+            <div class="card-title" style="margin-bottom:12px;">Saved Plans</div>
+            <div id="planHistory">
+              <div style="color:var(--text-3);font-size:0.82rem;">No plans yet</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Plan Display -->
+        <div id="planArea">
+          <div class="empty-state">
+            <div class="empty-icon">📅</div>
+            <p>Add your subjects, set your schedule, and click Generate. Gemini AI will create a personalized study plan for you.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../components/auth.js"></script>
+<script src="../components/sidebar.js"></script>
+<script>
+Auth.require();
+renderSidebar('planner');
+
+let subjects = [];
+const colors = ['#3b82f6','#06d6a0','#f72585','#ffd166','#7c3aed','#f97316'];
+
+function addSubject() {
+  const input = document.getElementById('subjectInput');
+  const val = input.value.trim();
+  if (!val || subjects.includes(val)) { input.value = ''; return; }
+  subjects.push(val);
+  input.value = '';
+  renderSubjectTags();
+}
+
+function removeSubject(i) {
+  subjects.splice(i, 1);
+  renderSubjectTags();
+}
+
+function renderSubjectTags() {
+  document.getElementById('subjectTags').innerHTML = subjects.map((s, i) => `
+    <div class="subject-tag">
+      <span style="width:8px;height:8px;border-radius:50%;background:${colors[i%colors.length]};flex-shrink:0;"></span>
+      ${escapeHtml(s)}
+      <button onclick="removeSubject(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+function renderHistory() {
+  const plans = DataStore.get('study_plans') || [];
+  const el = document.getElementById('planHistory');
+  if (!plans.length) { el.innerHTML = `<div style="color:var(--text-3);font-size:0.82rem;">No plans yet</div>`; return; }
+  el.innerHTML = plans.slice(0,4).map((p, i) => `
+    <div class="plan-history-item" onclick="loadPlan(${i})">
+      <strong>${p.subjects?.join(', ') || 'Study Plan'}</strong>
+      <span>${p.days} days · ${p.hoursPerDay}h/day · ${timeAgo(p.date)}</span>
+    </div>
+  `).join('');
+}
+
+let loadedPlan = null;
+
+function loadPlan(i) {
+  const plans = DataStore.get('study_plans') || [];
+  const plan = plans[i];
+  if (!plan) return;
+  loadedPlan = plan;
+  renderPlanUI(plan);
+}
+
+async function generatePlan() {
+  if (!subjects.length) { alert('Add at least one subject.'); return; }
+  // FIX: dead GeminiAPI.getKey()/showApiKeyPrompt() call removed — same bug
+  // as quiz.html, this crashed plan generation before it ever started.
+
+  const days = parseInt(document.getElementById('studyDays').value);
+  const hours = parseInt(document.getElementById('dailyHours').value);
+  const goal = document.getElementById('studyGoal').value;
+  const level = document.getElementById('studyLevel').value;
+  const notes = document.getElementById('planNotes').value.trim();
+  const btn = document.getElementById('planBtn');
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Generating...';
+
+  const prompt = `Create a ${days}-day study plan for a ${level} university CSE student.
+
+Subjects: ${subjects.join(', ')}
+Daily study time: ${hours} hours
+Goal: ${goal}
+${notes ? 'Additional notes: ' + notes : ''}
+
+Return ONLY a valid JSON array with this exact structure (no markdown, no code blocks, no explanation):
+[
+  {
+    "day": 1,
+    "date_label": "Day 1 — Monday",
+    "total_hours": ${hours},
+    "sessions": [
+      {
+        "subject": "Subject Name",
+        "topic": "Specific topic to cover",
+        "duration_min": 60,
+        "type": "lecture|practice|review|assignment",
+        "priority": "high|medium|low",
+        "tips": "Brief study tip"
+      }
+    ]
+  }
+]
+
+Distribute subjects intelligently across ${days} days. Each day should have multiple focused sessions adding up to ~${hours} hours (${hours*60} minutes). Include breaks between sessions. Make topics specific and actionable.`;
+
+  const area = document.getElementById('planArea');
+  area.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:300px;flex-direction:column;gap:16px;"><div class="typing-dots"><span></span><span></span><span></span></div><p style="color:var(--text-3);font-size:0.85rem;">Generating your personalized plan...</p></div>`;
+
+  try {
+    const raw = await GeminiAPI.call(prompt);
+    const jsonMatch = raw.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error('Invalid response');
+    const plan = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(plan) || !plan.length) throw new Error('Empty plan');
+
+    const planData = {
+      subjects, days, hoursPerDay: hours, goal, level,
+      plan, date: new Date().toISOString(), completions: {}
+    };
+    DataStore.push('study_plans', planData);
+    loadedPlan = planData;
+    Notifications.add(`Study plan created: ${subjects.join(', ')} 📅`, 'info');
+    renderPlanUI(planData);
+    renderHistory();
+
+    // FIX: actually persist to MongoDB (this call didn't exist before —
+    // generated plans only ever lived in localStorage).
+    BackendAPI.savePlan({
+      title: `${subjects.join(', ')} — ${days}-day plan`,
+      subjects, days: plan, goal, hoursPerDay: hours, level
+    }).then(res => {
+      if (res.demoMode) console.warn('Plan saved in DEMO MODE — MongoDB not connected.');
+      else console.log('✅ Study plan saved to MongoDB.');
+    }).catch(err => console.error('Failed to save plan to backend:', err.message));
+  } catch (err) {
+    area.innerHTML = `<div class="alert alert-error">Failed to generate plan: ${escapeHtml(err.message)}</div>`;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '📅 Generate Study Plan';
+}
+
+function toggleSession(dayIdx, sessIdx) {
+  if (!loadedPlan) return;
+  const key = `${dayIdx}-${sessIdx}`;
+  loadedPlan.completions = loadedPlan.completions || {};
+  loadedPlan.completions[key] = !loadedPlan.completions[key];
+  // Update in storage
+  const plans = DataStore.get('study_plans') || [];
+  if (plans[0]) { plans[0].completions = loadedPlan.completions; DataStore.set('study_plans', plans); }
+  renderPlanUI(loadedPlan);
+}
+
+function renderPlanUI(planData) {
+  const { plan, completions = {} } = planData;
+  const typeColors = { lecture:'#3b82f6', practice:'#06d6a0', review:'#ffd166', assignment:'#f72585' };
+  const typeIcons = { lecture:'📖', practice:'⚡', review:'🔄', assignment:'📝' };
+
+  const totalSessions = plan.reduce((a, d) => a + d.sessions.length, 0);
+  const completed = Object.values(completions).filter(Boolean).length;
+  const progPct = totalSessions ? Math.round(completed/totalSessions*100) : 0;
+
+  const area = document.getElementById('planArea');
+  area.innerHTML = `
+    <div class="card" style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div class="card-title">📅 Your Study Plan</div>
+          <div class="card-sub">${planData.subjects?.join(' · ')} · ${planData.days} days · ${planData.hoursPerDay}h/day</div>
+        </div>
+        <span class="badge badge-green">${planData.goal}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="prog-bar" style="flex:1;"><div class="prog-fill green" style="width:${progPct}%"></div></div>
+        <span style="font-family:var(--mono);font-size:0.8rem;color:var(--text-2);">${completed}/${totalSessions} done</span>
+      </div>
+    </div>
+    ${plan.map((day, di) => `
+      <div class="day-block" style="animation-delay:${di*0.08}s;">
+        <div class="day-header">
+          <strong>${escapeHtml(day.date_label || 'Day ' + day.day)}</strong>
+          <span>${day.total_hours}h · ${day.sessions.length} sessions</span>
+        </div>
+        <div class="day-sessions">
+          ${day.sessions.map((s, si) => {
+            const isDone = completions[`${di}-${si}`];
+            return `
+              <div class="session-block ${isDone?'done':''}" onclick="toggleSession(${di},${si})">
+                <div class="sess-check">${isDone ? '✓' : ''}</div>
+                <div class="sess-color" style="background:${typeColors[s.type]||'#3b82f6'};min-height:36px;"></div>
+                <div class="sess-info">
+                  <span class="sess-title">${typeIcons[s.type]||'📖'} ${escapeHtml(s.subject)} — ${escapeHtml(s.topic)}</span>
+                  <span class="sess-meta">${escapeHtml(s.type)} · Priority: ${s.priority} · ${escapeHtml(s.tips||'')}</span>
+                </div>
+                <span class="sess-duration">${s.duration_min}m</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+renderHistory();
+</script>
+</body>
+</html>

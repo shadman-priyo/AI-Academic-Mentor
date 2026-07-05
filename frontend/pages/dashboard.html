@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard — AI Academic Mentor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/global.css"/>
+  <style>
+    .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px; }
+    .content-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .quick-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+    .quick-btn {
+      display:flex; align-items:center; gap:14px;
+      padding:18px 20px;
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      text-decoration:none;
+      color:var(--text);
+      font-weight:600;
+      font-size:0.88rem;
+      transition:var(--transition);
+    }
+    .quick-btn:hover { border-color:var(--primary); background:rgba(59,130,246,0.08); transform:translateY(-2px); }
+    .quick-btn .qb-icon { font-size:1.5rem; }
+    .quick-btn .qb-desc { font-size:0.75rem; color:var(--text-3); font-weight:400; display:block; margin-top:2px; }
+    .activity-item { display:flex; align-items:flex-start; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+    .activity-item:last-child { border-bottom:none; }
+    .activity-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:0.9rem; flex-shrink:0; }
+    .activity-icon.ai { background:rgba(59,130,246,0.15); }
+    .activity-icon.quiz { background:rgba(255,209,102,0.15); }
+    .activity-icon.plan { background:rgba(6,214,160,0.12); }
+    .activity-content { flex:1; min-width:0; }
+    .activity-content strong { font-size:0.85rem; font-weight:600; color:var(--text); display:block; }
+    .activity-content span { font-size:0.75rem; color:var(--text-3); }
+    .welcome-card {
+      background:linear-gradient(135deg, rgba(59,130,246,0.15) 0%, rgba(6,214,160,0.08) 100%);
+      border:1px solid rgba(59,130,246,0.25);
+      border-radius:var(--radius);
+      padding:24px;
+      margin-bottom:24px;
+      display:flex; align-items:center; gap:20px;
+    }
+    .welcome-card .wc-emoji { font-size:2.5rem; }
+    .welcome-card h2 { font-size:1.1rem; font-weight:700; color:var(--text); margin-bottom:4px; }
+    .welcome-card p { font-size:0.85rem; color:var(--text-2); }
+    @media(max-width:900px) { .stats-grid{grid-template-columns:1fr 1fr} .content-grid{grid-template-columns:1fr} }
+    @media(max-width:500px) { .stats-grid{grid-template-columns:1fr 1fr} .quick-grid{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+  <div class="main-content">
+    <header class="topbar">
+      <button class="btn-ghost" onclick="toggleSidebar()" style="display:none;padding:8px;" id="mobMenuBtn">☰</button>
+      <div>
+        <div class="topbar-title">Dashboard</div>
+        <div class="topbar-sub" id="topbarDate"></div>
+      </div>
+      <div class="topbar-actions">
+        <div class="notif-btn" onclick="window.location.href='notifications.html'">
+          🔔
+          <div class="notif-badge" id="notifCount" style="display:none"></div>
+        </div>
+        <a href="settings.html" class="btn-ghost" style="padding:8px 12px;">⚙</a>
+      </div>
+    </header>
+    <div class="page-body">
+      <div class="welcome-card fade-in" id="welcomeCard"></div>
+
+      <div class="stats-grid stagger" id="statsGrid"></div>
+
+      <div class="content-grid">
+        <div class="card">
+          <div class="card-title">Quick Actions</div>
+          <div class="card-sub" style="margin-bottom:16px;">Jump into a feature</div>
+          <div class="quick-grid">
+            <a href="chatbot.html" class="quick-btn">
+              <span class="qb-icon">🤖</span>
+              <div><span>AI Chatbot</span><span class="qb-desc">Ask any question</span></div>
+            </a>
+            <a href="quiz.html" class="quick-btn">
+              <span class="qb-icon">⚡</span>
+              <div><span>Quiz Generator</span><span class="qb-desc">Test your knowledge</span></div>
+            </a>
+            <a href="summarizer.html" class="quick-btn">
+              <span class="qb-icon">📝</span>
+              <div><span>Summarizer</span><span class="qb-desc">Compress notes</span></div>
+            </a>
+            <a href="planner.html" class="quick-btn">
+              <span class="qb-icon">📅</span>
+              <div><span>Study Planner</span><span class="qb-desc">Plan your week</span></div>
+            </a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Recent Activity</div>
+          <div class="card-sub" style="margin-bottom:16px;">Your last actions</div>
+          <div id="activityList">
+            <div class="empty-state" style="padding:30px 0;">
+              <div class="empty-icon">📭</div>
+              <p>No activity yet. Start using the AI features!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="../components/auth.js"></script>
+<script src="../components/sidebar.js"></script>
+<script>
+const user = Auth.require();
+renderSidebar('dashboard');
+
+// Responsive
+if (window.innerWidth <= 900) document.getElementById('mobMenuBtn').style.display = 'flex';
+
+// Date
+document.getElementById('topbarDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+// Welcome card
+document.getElementById('welcomeCard').innerHTML = `
+  <span class="wc-emoji">${new Date().getHours() < 12 ? '🌅' : new Date().getHours() < 17 ? '☀️' : '🌙'}</span>
+  <div>
+    <h2>${new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, ${escapeHtml(user.name.split(' ')[0])}!</h2>
+    <p>Ready to study smarter today? Your AI mentor is ready to help.</p>
+  </div>
+`;
+
+// Stats
+const quizzes = DataStore.get('quiz_results') || [];
+const chats = DataStore.get('chat_history') || [];
+const plans = DataStore.get('study_plans') || [];
+const avgScore = quizzes.length ? Math.round(quizzes.reduce((a,q) => a + (q.score||0), 0) / quizzes.length) : 0;
+
+document.getElementById('statsGrid').innerHTML = `
+  <div class="stat-card fade-up">
+    <div class="stat-icon">⚡</div>
+    <div class="stat-number">${quizzes.length}</div>
+    <div class="stat-label">Quizzes Taken</div>
+    <div class="stat-change">+${quizzes.filter(q => {
+      const d = new Date(q.date);
+      const now = new Date();
+      return d > new Date(now - 7*24*60*60*1000);
+    }).length} this week</div>
+  </div>
+  <div class="stat-card fade-up">
+    <div class="stat-icon">🤖</div>
+    <div class="stat-number">${chats.length}</div>
+    <div class="stat-label">AI Conversations</div>
+    <div class="stat-change">Powered by Gemini</div>
+  </div>
+  <div class="stat-card fade-up">
+    <div class="stat-icon">📅</div>
+    <div class="stat-number">${plans.length}</div>
+    <div class="stat-label">Study Plans</div>
+    <div class="stat-change">Created this semester</div>
+  </div>
+  <div class="stat-card fade-up">
+    <div class="stat-icon">🎯</div>
+    <div class="stat-number">${avgScore}%</div>
+    <div class="stat-label">Avg Quiz Score</div>
+    <div class="stat-change">${avgScore >= 70 ? '✓ Great performance' : quizzes.length ? 'Keep practicing' : 'Take a quiz!'}</div>
+  </div>
+`;
+
+// Activity
+const activities = [
+  ...quizzes.slice(0,3).map(q => ({ type:'quiz', icon:'⚡', label:`Quiz: ${q.topic}`, detail:`Score ${q.score}%`, time:q.date })),
+  ...chats.slice(0,3).map(c => ({ type:'ai', icon:'🤖', label:`Asked: ${c.topic}`, detail:'AI Chatbot', time:c.date })),
+  ...plans.slice(0,2).map(p => ({ type:'plan', icon:'📅', label:`Study Plan Created`, detail:p.subjects?.join(', '), time:p.date }))
+].sort((a,b) => new Date(b.time) - new Date(a.time)).slice(0,6);
+
+if (activities.length) {
+  document.getElementById('activityList').innerHTML = activities.map(a => `
+    <div class="activity-item">
+      <div class="activity-icon ${a.type}">${a.icon}</div>
+      <div class="activity-content">
+        <strong>${escapeHtml(a.label)}</strong>
+        <span>${escapeHtml(a.detail || '')} · ${timeAgo(a.time)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Notification badge
+const nc = Notifications.unreadCount();
+const nb = document.getElementById('notifCount');
+if (nc > 0) { nb.style.display='flex'; nb.textContent = nc; }
+
+// FIX: everything above renders instantly from the local DataStore cache
+// (good for a snappy UI), but that cache could be stale or empty on a new
+// device. This pulls the real numbers from MongoDB via /api/progress and
+// overwrites the stat cards once they arrive — this is the actual
+// "real-time from the database" behavior that was missing before.
+BackendAPI.getProgress().then(data => {
+  const grid = document.getElementById('statsGrid');
+  if (!grid) return;
+  const cards = grid.querySelectorAll('.stat-number');
+  if (cards[0]) cards[0].textContent = data.quiz.total;
+  if (cards[2]) cards[2].textContent = data.plans.total;
+  if (cards[3]) cards[3].textContent = data.quiz.avgScore + '%';
+}).catch(err => console.warn('Could not load live progress from backend:', err.message));
+</script>
+</body>
+</html>

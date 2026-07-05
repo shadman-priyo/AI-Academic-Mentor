@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel — AI Academic Mentor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/global.css"/>
+  <style>
+    .admin-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+    .users-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:16px; }
+    .user-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; transition:var(--transition); }
+    .user-card:hover { border-color:var(--primary); }
+    .user-card-top { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+    .user-card-avatar { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,var(--primary),var(--accent)); display:flex; align-items:center; justify-content:center; font-size:0.9rem; font-weight:700; color:#fff; flex-shrink:0; }
+    .user-card-avatar.admin-av { background:linear-gradient(135deg,#f59e0b,#d97706); }
+    .user-card-avatar.banned-av { background:linear-gradient(135deg,#ef4444,#b91c1c); opacity:0.7; }
+    .user-card-meta { font-size:0.78rem; color:var(--text-3); line-height:1.9; }
+    .user-card-actions { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+    .btn-xs { padding:5px 11px; border-radius:6px; font-size:0.74rem; font-weight:600; cursor:pointer; border:1px solid transparent; transition:var(--transition); }
+    .btn-xs-promote { background:rgba(245,158,11,0.12); color:#f59e0b; border-color:rgba(245,158,11,0.3); }
+    .btn-xs-promote:hover { background:rgba(245,158,11,0.22); }
+    .btn-xs-demote  { background:rgba(59,130,246,0.1); color:var(--primary-light); border-color:rgba(59,130,246,0.3); }
+    .btn-xs-demote:hover  { background:rgba(59,130,246,0.2); }
+    .btn-xs-ban    { background:rgba(239,68,68,0.1); color:#f87171; border-color:rgba(239,68,68,0.3); }
+    .btn-xs-ban:hover    { background:rgba(239,68,68,0.2); }
+    .btn-xs-delete { background:rgba(239,68,68,0.15); color:#ef4444; border-color:rgba(239,68,68,0.4); }
+    .btn-xs-delete:hover { background:rgba(239,68,68,0.28); }
+    .btn-xs-unban  { background:rgba(16,185,129,0.1); color:#34d399; border-color:rgba(16,185,129,0.3); }
+    .btn-xs-unban:hover  { background:rgba(16,185,129,0.2); }
+    .announce-form { display:flex; flex-direction:column; gap:12px; }
+    .announcement-item { padding:14px 16px; background:var(--bg-2); border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:8px; position:relative; }
+    .announcement-item strong { display:block; font-size:0.88rem; color:var(--text); margin-bottom:4px; }
+    .announcement-item p { font-size:0.82rem; color:var(--text-2); line-height:1.5; margin-bottom:4px; }
+    .announcement-item span { font-size:0.72rem; color:var(--text-3); }
+    .ann-del { position:absolute; top:10px; right:10px; background:none; border:none; color:var(--text-3); cursor:pointer; font-size:0.8rem; padding:2px 6px; border-radius:4px; }
+    .ann-del:hover { color:#f87171; background:rgba(239,68,68,0.1); }
+    .tab-bar { display:flex; gap:4px; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:0; }
+    .tab-btn { padding:9px 18px; border-radius:8px 8px 0 0; border:1px solid transparent; border-bottom:none; font-size:0.85rem; font-weight:600; cursor:pointer; background:none; color:var(--text-3); transition:var(--transition); margin-bottom:-1px; }
+    .tab-btn.active { background:var(--surface); border-color:var(--border); border-bottom-color:var(--surface); color:var(--primary-light); }
+    .tab-btn:hover:not(.active) { color:var(--text); }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; animation:fadeUp 0.25s ease both; }
+    .search-bar { display:flex; gap:10px; margin-bottom:16px; align-items:center; }
+    .search-bar input { flex:1; }
+    .filter-btns { display:flex; gap:6px; }
+    .filter-btn { padding:6px 14px; border-radius:999px; font-size:0.78rem; font-weight:600; cursor:pointer; border:1px solid var(--border); background:var(--bg-2); color:var(--text-3); transition:var(--transition); }
+    .filter-btn.active { background:rgba(59,130,246,0.12); border-color:rgba(59,130,246,0.35); color:var(--primary-light); }
+    .data-section { margin-bottom:24px; }
+    .user-data-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); font-size:0.83rem; }
+    .user-data-row:last-child { border-bottom:none; }
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; }
+    .modal-box { background:var(--surface); border:1px solid var(--border-2); border-radius:var(--radius-lg); padding:32px; max-width:520px; width:100%; box-shadow:var(--shadow-lg); animation:fadeUp 0.3s ease both; }
+    @media(max-width:800px) { .admin-grid{grid-template-columns:1fr 1fr} }
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-root"></div>
+  <div class="main-content">
+    <header class="topbar">
+      <button class="btn-ghost" onclick="toggleSidebar()" style="display:none;padding:8px;" id="mobMenuBtn">☰</button>
+      <div>
+        <div class="topbar-title">🛡 Admin Panel</div>
+        <div class="topbar-sub">Full platform control</div>
+      </div>
+      <div class="topbar-actions">
+        <span class="badge badge-gold">Admin Access</span>
+      </div>
+    </header>
+    <div class="page-body wide" style="padding:28px;max-width:1200px;">
+
+      <!-- Stats -->
+      <div class="admin-grid stagger" id="adminStats"></div>
+
+      <!-- Tabs -->
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('users',this)">👥 User Management</button>
+        <button class="tab-btn" onclick="switchTab('data',this)">📊 Platform Data</button>
+        <button class="tab-btn" onclick="switchTab('announce',this)">📢 Announcements</button>
+        <button class="tab-btn" onclick="switchTab('system',this)">⚙ System</button>
+      </div>
+
+      <!-- TAB: USERS -->
+      <div class="tab-panel active" id="tab-users">
+        <div class="search-bar">
+          <input type="text" class="form-input" id="userSearch" placeholder="Search by name or email…" oninput="renderUsers()" style="max-width:340px;"/>
+          <div class="filter-btns">
+            <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+            <button class="filter-btn" onclick="setFilter('student',this)">Students</button>
+            <button class="filter-btn" onclick="setFilter('admin',this)">Admins</button>
+            <button class="filter-btn" onclick="setFilter('banned',this)">Banned</button>
+          </div>
+        </div>
+        <div class="users-grid" id="usersGrid"></div>
+      </div>
+
+      <!-- TAB: DATA -->
+      <div class="tab-panel" id="tab-data">
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title" style="margin-bottom:16px;">Per-User Data Overview</div>
+          <div id="userDataList"></div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="margin-bottom:8px;">Bulk Data Operations</div>
+          <div class="card-sub" style="margin-bottom:16px;">These actions affect all users. Use with caution.</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <button class="btn-outline" onclick="exportAllData()" style="font-size:0.85rem;">📥 Export User List (JSON)</button>
+            <button class="btn-outline" onclick="nukeAllData()" style="color:var(--accent-2);border-color:var(--accent-2);font-size:0.85rem;">⚠️ Bulk Clear (see note)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: ANNOUNCEMENTS -->
+      <div class="tab-panel" id="tab-announce">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+          <div class="card">
+            <div class="card-title" style="margin-bottom:4px;">Post Announcement</div>
+            <div class="card-sub" style="margin-bottom:16px;">Visible to all students on their notifications page</div>
+            <div class="announce-form">
+              <div class="form-group">
+                <label>Title</label>
+                <input type="text" id="announceTitle" class="form-input" placeholder="e.g. Week 5 Submission Reminder"/>
+              </div>
+              <div class="form-group">
+                <label>Message</label>
+                <textarea id="announceMsg" class="form-input" style="min-height:120px;" placeholder="Write your announcement…"></textarea>
+              </div>
+              <div class="form-group">
+                <label>Priority</label>
+                <select id="announcePriority" class="form-input">
+                  <option value="info">ℹ Info</option>
+                  <option value="warning">⚠ Warning</option>
+                  <option value="urgent">🚨 Urgent</option>
+                </select>
+              </div>
+              <button class="btn-primary" onclick="postAnnouncement()">Post Announcement</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:12px;">Posted Announcements</div>
+            <div id="announceList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: SYSTEM -->
+      <div class="tab-panel" id="tab-system">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+          <div class="card">
+            <div class="card-title" style="margin-bottom:16px;">System Information</div>
+            <div id="sysInfo"></div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:8px;">Admin Actions</div>
+            <div class="card-sub" style="margin-bottom:16px;">Destructive operations — irreversible.</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <button class="btn-outline" onclick="resetAllNotifications()" style="justify-content:flex-start;font-size:0.85rem;">🔔 Clear All Notifications</button>
+              <button class="btn-outline" onclick="nukeAllData()" style="color:#ef4444;border-color:rgba(239,68,68,0.4);justify-content:flex-start;font-size:0.85rem;">☠ Wipe All Platform Data</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- User Detail Modal -->
+<div id="userModal" style="display:none;" class="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box" id="userModalContent"></div>
+</div>
+
+<script src="../components/auth.js"></script>
+<script src="../components/sidebar.js"></script>
+<script>
+// ── ADMIN GUARD — hard block, no content shown ──────────────────────────
+const adminUser = Auth.requireAdmin(); // redirects to dashboard if not admin
+renderSidebar('admin');
+
+// ── STATE ───────────────────────────────────────────────────────────────
+let currentFilter = 'all';
+let allUsersCache = []; // populated from the real backend, not localStorage
+
+// ── TAB SWITCHING ────────────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'data') renderDataTab();
+  if (id === 'system') renderSysInfo();
+}
+
+// FIX: this whole file used to run on UserDB — a fake, per-browser
+// localStorage list of users. It could never show real platform data
+// (another admin, on another computer, saw a totally different fake list).
+// Everything below now hits /api/admin/* on the real backend.
+async function loadUsers() {
+  const data = await AdminAPI.listUsers('?limit=200');
+  allUsersCache = data.users || [];
+  return allUsersCache;
+}
+
+// ── STATS ────────────────────────────────────────────────────────────────
+async function renderStats() {
+  try {
+    const { stats } = await AdminAPI.stats();
+    document.getElementById('adminStats').innerHTML = `
+      <div class="stat-card fade-up"><div class="stat-icon">👥</div><div class="stat-number">${stats.totalUsers}</div><div class="stat-label">Total Users</div></div>
+      <div class="stat-card fade-up"><div class="stat-icon">🎓</div><div class="stat-number">${stats.totalUsers}</div><div class="stat-label">Registered Accounts</div></div>
+      <div class="stat-card fade-up"><div class="stat-icon">⚡</div><div class="stat-number">${stats.totalQuizzes}</div><div class="stat-label">Total Quizzes</div></div>
+      <div class="stat-card fade-up"><div class="stat-icon">📊</div><div class="stat-number">${stats.avgQuizScore}%</div><div class="stat-label">Platform Avg Score</div></div>
+    `;
+  } catch (err) {
+    document.getElementById('adminStats').innerHTML = `<div class="alert alert-error">Could not load stats: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ── USER MANAGEMENT ───────────────────────────────────────────────────────
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderUsers();
+}
+
+async function renderUsers() {
+  const query = (document.getElementById('userSearch')?.value || '').toLowerCase();
+  const grid = document.getElementById('usersGrid');
+  grid.innerHTML = `<div style="color:var(--text-3);font-size:0.85rem;padding:20px 0;grid-column:1/-1;">Loading users…</div>`;
+
+  let users;
+  try {
+    users = allUsersCache.length ? allUsersCache : await loadUsers();
+  } catch (err) {
+    grid.innerHTML = `<div class="alert alert-error" style="grid-column:1/-1;">Could not load users: ${escapeHtml(err.message)}</div>`;
+    return;
+  }
+
+  if (currentFilter === 'student') users = users.filter(u => u.role !== 'admin' && u.isActive);
+  else if (currentFilter === 'admin') users = users.filter(u => u.role === 'admin');
+  else if (currentFilter === 'banned') users = users.filter(u => !u.isActive);
+
+  if (query) users = users.filter(u =>
+    u.name?.toLowerCase().includes(query) || u.email?.toLowerCase().includes(query)
+  );
+
+  if (!users.length) {
+    grid.innerHTML = `<div style="color:var(--text-3);font-size:0.85rem;padding:20px 0;grid-column:1/-1;">No users match this filter.</div>`;
+    return;
+  }
+
+  grid.innerHTML = users.map(u => {
+    const isAdmin = u.role === 'admin';
+    const isBanned = !u.isActive;
+    const isSelf = u._id === adminUser.id || u._id === adminUser._id;
+    const avatarClass = isAdmin ? 'admin-av' : isBanned ? 'banned-av' : '';
+
+    return `
+      <div class="user-card" id="uc-${u._id}">
+        <div class="user-card-top">
+          <div class="user-card-avatar ${avatarClass}">${Auth.initials(u.name)}</div>
+          <div style="min-width:0;">
+            <strong style="display:block;font-size:0.88rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(u.name)}</strong>
+            <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;">
+              <span class="badge ${isAdmin ? 'badge-gold' : 'badge-blue'}">${isAdmin ? '🛡 Admin' : '🎓 Student'}</span>
+              ${isBanned ? `<span class="badge" style="background:rgba(239,68,68,0.15);color:#f87171;border-color:rgba(239,68,68,0.3);">🚫 Disabled</span>` : ''}
+              ${isSelf ? `<span class="badge" style="background:rgba(16,185,129,0.1);color:#34d399;border-color:rgba(16,185,129,0.3);">You</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="user-card-meta">
+          <div>✉ ${escapeHtml(u.email)}</div>
+          ${u.studentId ? `<div>🎓 ID: ${escapeHtml(u.studentId)}</div>` : ''}
+          ${u.department ? `<div>🏛 ${escapeHtml(u.department)}</div>` : ''}
+          <div>📅 Joined: ${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Unknown'}</div>
+        </div>
+        ${!isSelf ? `
+        <div class="user-card-actions">
+          <button class="btn-xs" onclick="viewUserDetail('${u._id}')" style="background:rgba(59,130,246,0.08);color:var(--primary-light);border-color:rgba(59,130,246,0.25);">👁 View</button>
+          ${!isAdmin ? `<button class="btn-xs btn-xs-promote" onclick="promoteUser('${u._id}')">⬆ Make Admin</button>` : `<button class="btn-xs btn-xs-demote" onclick="demoteUser('${u._id}')">⬇ Demote</button>`}
+          ${!isBanned ? `<button class="btn-xs btn-xs-ban" onclick="banUser('${u._id}')">🚫 Disable</button>` : `<button class="btn-xs btn-xs-unban" onclick="unbanUser('${u._id}')">✅ Enable</button>`}
+          <button class="btn-xs btn-xs-delete" onclick="deleteUser('${u._id}')">🗑 Delete</button>
+        </div>` : '<div style="font-size:0.75rem;color:var(--text-3);margin-top:10px;font-style:italic;">Cannot modify your own account</div>'}
+      </div>
+    `;
+  }).join('');
+}
+
+// ── USER ACTIONS ─────────────────────────────────────────────────────────
+async function promoteUser(id) {
+  const u = allUsersCache.find(x => x._id === id);
+  if (!u) return;
+  if (!confirm(`Promote "${u.name}" to Admin? They will have full platform control.`)) return;
+  try {
+    await AdminAPI.updateUser(id, { role: 'admin' });
+    u.role = 'admin';
+    showToast(`${u.name} promoted to Admin`);
+    renderStats(); renderUsers();
+  } catch (err) { showToast('Failed: ' + err.message, 'warn'); }
+}
+
+async function demoteUser(id) {
+  const u = allUsersCache.find(x => x._id === id);
+  if (!u) return;
+  if (!confirm(`Demote "${u.name}" to Student?`)) return;
+  try {
+    await AdminAPI.updateUser(id, { role: 'student' });
+    u.role = 'student';
+    showToast(`${u.name} demoted to Student`);
+    renderStats(); renderUsers();
+  } catch (err) { showToast('Failed: ' + err.message, 'warn'); }
+}
+
+async function banUser(id) {
+  const u = allUsersCache.find(x => x._id === id);
+  if (!u) return;
+  if (!confirm(`Disable "${u.name}"? They will be unable to log in.`)) return;
+  try {
+    await AdminAPI.updateUser(id, { isActive: false });
+    u.isActive = false;
+    showToast(`${u.name} has been disabled`, 'warn');
+    renderStats(); renderUsers();
+  } catch (err) { showToast('Failed: ' + err.message, 'warn'); }
+}
+
+async function unbanUser(id) {
+  const u = allUsersCache.find(x => x._id === id);
+  if (!u) return;
+  try {
+    await AdminAPI.updateUser(id, { isActive: true });
+    u.isActive = true;
+    showToast(`${u.name} has been enabled`);
+    renderStats(); renderUsers();
+  } catch (err) { showToast('Failed: ' + err.message, 'warn'); }
+}
+
+async function deleteUser(id) {
+  const u = allUsersCache.find(x => x._id === id);
+  if (!u) return;
+  if (!confirm(`Permanently delete "${u.name}"? This also removes ALL their quizzes, plans and notes in MongoDB and cannot be undone.`)) return;
+  try {
+    await AdminAPI.deleteUser(id);
+    allUsersCache = allUsersCache.filter(x => x._id !== id);
+    showToast(`${u.name} deleted permanently`, 'warn');
+    renderStats(); renderUsers();
+  } catch (err) { showToast('Failed: ' + err.message, 'warn'); }
+}
+
+async function viewUserDetail(id) {
+  const u = allUsersCache.find(x => x._id === id);
+  if (!u) return;
+  document.getElementById('userModalContent').innerHTML = `<div style="padding:30px;text-align:center;color:var(--text-3);">Loading activity…</div>`;
+  document.getElementById('userModal').style.display = 'flex';
+
+  let activity = { quizzes: 0, plans: 0, chats: 0, avgScore: 0 };
+  try { activity = await AdminAPI.getUserActivity(id); }
+  catch (err) { console.warn('Could not load user activity:', err.message); }
+
+  document.getElementById('userModalContent').innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+      <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;color:#fff;flex-shrink:0;">${Auth.initials(u.name)}</div>
+      <div>
+        <div style="font-size:1.1rem;font-weight:800;color:var(--text);">${escapeHtml(u.name)}</div>
+        <div style="font-size:0.82rem;color:var(--text-3);">${escapeHtml(u.email)}</div>
+      </div>
+    </div>
+    <table class="data-table" style="margin-bottom:16px;">
+      <tr><td style="color:var(--text-3);">Role</td><td><span class="badge ${u.role==='admin'?'badge-gold':'badge-blue'}">${u.role}</span></td></tr>
+      <tr><td style="color:var(--text-3);">Student ID</td><td>${escapeHtml(u.studentId||'—')}</td></tr>
+      <tr><td style="color:var(--text-3);">Department</td><td>${escapeHtml(u.department||'CSE')}</td></tr>
+      <tr><td style="color:var(--text-3);">Status</td><td>${!u.isActive ? '<span style="color:#f87171;">🚫 Disabled</span>' : '<span style="color:#34d399;">✅ Active</span>'}</td></tr>
+      <tr><td style="color:var(--text-3);">Joined</td><td>${u.createdAt ? new Date(u.createdAt).toLocaleString() : 'Unknown'}</td></tr>
+    </table>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+      <div class="stat-card" style="padding:14px;"><div class="stat-number" style="font-size:1.4rem;">${activity.quizzes||0}</div><div class="stat-label">Quizzes</div></div>
+      <div class="stat-card" style="padding:14px;"><div class="stat-number" style="font-size:1.4rem;">${activity.avgScore||0}%</div><div class="stat-label">Avg Score</div></div>
+      <div class="stat-card" style="padding:14px;"><div class="stat-number" style="font-size:1.4rem;">${activity.chats||0}</div><div class="stat-label">Chats</div></div>
+      <div class="stat-card" style="padding:14px;"><div class="stat-number" style="font-size:1.4rem;">${activity.plans||0}</div><div class="stat-label">Study Plans</div></div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn-outline" onclick="closeModal()" style="flex:1;justify-content:center;">Close</button>
+      ${u._id !== adminUser.id ? `
+        <button class="btn-xs btn-xs-delete" style="padding:10px 16px;font-size:0.82rem;" onclick="closeModal();deleteUser('${u._id}')">🗑 Delete User</button>
+      ` : ''}
+    </div>
+  `;
+}
+
+function closeModal() {
+  document.getElementById('userModal').style.display = 'none';
+}
+
+// ── DATA TAB ──────────────────────────────────────────────────────────────
+// FIX: this used to loop over UserDB.all() and read DataStore.getForUser()
+// for EACH user, which — as noted above — could never contain another
+// user's real data. That entire table was always showing 0/0/0/0.
+// Replaced with the real per-user MongoDB activity counts.
+async function renderDataTab() {
+  const el = document.getElementById('userDataList');
+  el.innerHTML = `<div style="color:var(--text-3);font-size:0.85rem;">Loading…</div>`;
+  const users = allUsersCache.length ? allUsersCache : await loadUsers();
+
+  const rows = await Promise.all(users.map(async u => {
+    let a = { quizzes: 0, chats: 0, plans: 0, notes: 0 };
+    try { a = await AdminAPI.getUserActivity(u._id); } catch {}
+    return `
+      <div class="user-data-row">
+        <div>
+          <strong style="font-size:0.85rem;color:var(--text);">${escapeHtml(u.name)}</strong>
+          <span style="font-size:0.75rem;color:var(--text-3);margin-left:8px;">${escapeHtml(u.email)}</span>
+        </div>
+        <div style="display:flex;gap:16px;font-size:0.78rem;color:var(--text-2);">
+          <span>⚡ ${a.quizzes||0}</span><span>🤖 ${a.chats||0}</span><span>📅 ${a.plans||0}</span><span>📄 ${a.notes||0}</span>
+        </div>
+      </div>`;
+  }));
+  el.innerHTML = rows.join('') || '<div style="color:var(--text-3);font-size:0.85rem;">No users registered.</div>';
+}
+
+function exportAllData() {
+  // NOTE: full data export (quiz/chat/plan/summary content, not just
+  // counts) would need a dedicated backend export endpoint — out of scope
+  // for this pass. This exports the real user list from MongoDB for now.
+  const dump = allUsersCache.map(u => ({
+    id: u._id, name: u.name, email: u.email, role: u.role, studentId: u.studentId, createdAt: u.createdAt
+  }));
+  const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ai-mentor-users-export-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  showToast('User list exported');
+}
+
+// ── ANNOUNCEMENTS ─────────────────────────────────────────────────────────
+// NOTE: announcements remain local-only (no Mongo model exists for them in
+// this project). They are visible only in the admin's own browser and are
+// NOT actually broadcast to student accounts — that would need a real
+// Announcement collection + a route students poll, which is a bigger
+// feature addition than this bug-fix pass covers. Flagging this honestly
+// rather than pretending it works.
+const ANNOUNCE_KEY = 'aim_announcements';
+function getAnnouncements() { try { return JSON.parse(localStorage.getItem(ANNOUNCE_KEY)||'[]'); } catch { return []; } }
+
+function renderAnnouncements() {
+  const anns = getAnnouncements();
+  const el = document.getElementById('announceList');
+  if (!el) return;
+  if (!anns.length) { el.innerHTML = `<div style="color:var(--text-3);font-size:0.82rem;">No announcements yet.</div>`; return; }
+  const priorityColor = { info:'badge-blue', warning:'badge-gold', urgent:'badge' };
+  const priorityIcon  = { info:'ℹ', warning:'⚠', urgent:'🚨' };
+  el.innerHTML = anns.map((a, i) => `
+    <div class="announcement-item">
+      <button class="ann-del" onclick="deleteAnnouncement(${i})">✕</button>
+      <strong>${escapeHtml(a.title)} <span class="badge ${priorityColor[a.priority]||'badge-blue'}" style="font-size:0.68rem;">${priorityIcon[a.priority]||'ℹ'} ${a.priority||'info'}</span></strong>
+      <p>${escapeHtml(a.message)}</p>
+      <span>By ${escapeHtml(a.author)} · ${timeAgo(a.date)}</span>
+    </div>
+  `).join('');
+}
+
+function postAnnouncement() {
+  const title    = document.getElementById('announceTitle').value.trim();
+  const message  = document.getElementById('announceMsg').value.trim();
+  const priority = document.getElementById('announcePriority').value;
+  if (!title || !message) { alert('Fill in both title and message.'); return; }
+  const anns = getAnnouncements();
+  anns.unshift({ title, message, priority, author: adminUser.name, date: new Date().toISOString() });
+  localStorage.setItem(ANNOUNCE_KEY, JSON.stringify(anns));
+  document.getElementById('announceTitle').value = '';
+  document.getElementById('announceMsg').value = '';
+  showToast('Saved locally — this is NOT broadcast to student accounts yet (see code comment).', 'warn');
+  renderAnnouncements();
+}
+
+function deleteAnnouncement(idx) {
+  const anns = getAnnouncements();
+  anns.splice(idx, 1);
+  localStorage.setItem(ANNOUNCE_KEY, JSON.stringify(anns));
+  renderAnnouncements();
+}
+
+// ── SYSTEM ────────────────────────────────────────────────────────────────
+async function renderSysInfo() {
+  const users = allUsersCache.length ? allUsersCache : await loadUsers();
+  document.getElementById('sysInfo').innerHTML = `
+    <table class="data-table">
+      <tr><td style="color:var(--text-3);">Total Users (MongoDB)</td><td>${users.length}</td></tr>
+      <tr><td style="color:var(--text-3);">Admins</td><td>${users.filter(u=>u.role==='admin').length}</td></tr>
+      <tr><td style="color:var(--text-3);">Disabled Accounts</td><td>${users.filter(u=>!u.isActive).length}</td></tr>
+      <tr><td style="color:var(--text-3);">Announcements (local only)</td><td>${getAnnouncements().length}</td></tr>
+      <tr><td style="color:var(--text-3);">App Version</td><td>1.0.0 — CSE4104-7C-T05</td></tr>
+      <tr><td style="color:var(--text-3);">Logged in as</td><td>${escapeHtml(adminUser.name)}</td></tr>
+    </table>
+  `;
+}
+
+function resetAllNotifications() {
+  showToast('Notifications are stored per-browser locally — nothing to reset server-side.', 'warn');
+}
+
+// FIX: nukeAllData() used to wipe localStorage and re-add a single fake
+// UserDB entry for "yourself" — meaningless now that users live in Mongo.
+// A real "wipe the whole database" action needs an explicit, dangerous,
+// server-side-confirmed endpoint — deliberately NOT wiring that up here.
+function nukeAllData() {
+  alert('Full platform wipe is not available from the UI on purpose — this would delete every real user\'s MongoDB data. If you actually need this, do it directly in MongoDB Atlas, deliberately, outside the app.');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'ok') {
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:99999;padding:12px 20px;border-radius:10px;font-size:0.85rem;font-weight:600;color:#fff;background:${type==='warn'?'#b91c1c':'#065f46'};box-shadow:0 8px 24px rgba(0,0,0,0.4);animation:fadeUp 0.3s ease both;`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+renderStats();
+renderUsers();
+renderAnnouncements();
+</script>
+</body>
+</html>
