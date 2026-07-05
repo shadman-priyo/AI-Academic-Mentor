@@ -1,9 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/frontend/pages/login.html", "destination": "/pages/login.html" },
-    { "source": "/frontend/pages/register.html", "destination": "/pages/register.html" },
-    { "source": "/frontend/pages/dashboard.html", "destination": "/pages/dashboard.html" },
-    { "source": "/frontend/styles/global.css", "destination": "/styles/global.css" },
-    { "source": "/frontend/styles/landing.css", "destination": "/styles/landing.css" }
-  ]
-}
