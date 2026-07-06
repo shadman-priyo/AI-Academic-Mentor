@@ -174,23 +174,41 @@ cse4104-7c-t05-ai-academic-mentor/
 
 ```
 
-## 📊 Week 5 Progress: UI/UX Design (Completed)
+## 📊 Week 7 Progress: Frontend Development (Completed)
 
 ### ✅ Deliverables Completed
 
-| SL No | Deliverable | Status |
+| # | Deliverable | Status |
 |---|-------------|--------|
-| 1 | Figma Designs | ✅ Done |
-| 2 | UI Screenshots | ✅ Done |
-| 3 | Development Roadmap | ✅ Done |
+| 1 | Frontend Project Setup (React.js + Tailwind CSS) | ✅ Done |
+| 2 | Landing/Home Page | ✅ Done |
+| 3 | Login Page | ✅ Done |
+| 4 | Registration Page | ✅ Done |
+| 5 | Dashboard | ✅ Done |
+| 6 | User Profile Page | ✅ Done |
+| 7 | AI Chatbot Page | ✅ Done |
+| 8 | Quiz Generator Page | ✅ Done |
+| 9 | Note Summarizer Page | ✅ Done |
+| 10 | Study Planner Page | ✅ Done |
+| 11 | Backend API Integration (Axios) | ✅ Done |
+| 12 | Authentication Flow (JWT) | ✅ Done |
+| 13 | Protected Routes | ✅ Done |
+| 14 | Form Validation | ✅ Done |
+| 15 | Responsive Design | ✅ Done |
 
 ### 📁 Files Location
 
 | File | Location |
 |------|----------|
-| UI/UX Design Document | [`documentation/CSE4104-7C-T05_UIDesign.pdf`](./documentation/CSE4104-7C-T05_UIDesign.pdf) |
-| **Figma Design Link** | [https://tech-poise-17998119.figma.site/](https://tech-poise-17998119.figma.site/) |
-| Design Screenshots | [`design/`](./design) folder |
+| Frontend Source Code | [`frontend/`](./frontend) |
+| Frontend Progress Report | [`documentation/CSE4104-7C-T05_FrontendProgress.pdf`](./documentation/CSE4104-7C-T05_FrontendProgress.pdf) |
+| UI Screenshots | [`screenshots/`](./screenshots) |
+
+### 🌐 Live Demo
+
+| Platform | Link |
+|----------|------|
+| **Vercel Deployment** | [https://ai-academic-mentor.vercel.app](https://ai-academic-mentor.vercel.app) |
 
 
 ### Next Steps
